@@ -1,0 +1,6 @@
+[submodule "py-wink"]
+	path = py-wink
+	url = git@github.com:jso/py-wink.git
+[submodule "python-neurio"]
+	path = python-neurio
+	url = git@github.com:jordanh/python-neurio.git
