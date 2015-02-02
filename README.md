@@ -12,15 +12,12 @@ $ git submodule update
 
 ### 2. Install additional Python modules
 
-This application requires:
-
-  * requests
-  * httplib2
+See ``requirements.txt``.
 
 You can install them using pip:
 
  ```
- $ pip install requests httplib2
+ $ pip install -r requirements.txt
  ```
 
 ### 3. Request Neurio and Wink API keys
@@ -44,3 +41,9 @@ keys and application preferences:
 ```
 $ python neurio-nimbus.py
 ```
+
+## Docker
+
+If you'd like, you can run this application in a
+[Docker][https://www.docker.com/] image. A Dockerfile
+has been included with the project.
