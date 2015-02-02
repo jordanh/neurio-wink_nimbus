@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys
+import sys, traceback
 sys.path.append("./py-wink")
 sys.path.append("./python-neurio")
 
@@ -10,6 +10,13 @@ import neurio
 import ConfigParser
 import time
 import datetime
+
+
+def scale_value(x, in_min, in_max, out_min, out_max):
+    try:
+        return (x - in_min) * (out_max - out_min) // (in_max - in_min) + out_min
+    except ZeroDivisionError:
+        return 0
 
 
 class Nimbus(object):
@@ -28,30 +35,55 @@ class Nimbus(object):
                               {})
         self.__dict__ = c.__dict__
 
-    def set_dial_percent(self, dial_num, percent, label):
-            dial = self.dials()[dial_num]
-            original = dial.get_config()
-            min_value = original["dial_configuration"]["min_value"]
-            max_value = original["dial_configuration"]["max_value"]
-            value = str(int(percent * 100 / max_value))
+        # keep locally seen ranges for scaling purposes:
+        self.min_value = sys.maxint
+        self.max_value = 0
 
-            # assert manual control with new value and label:
+    def set_dial_value(self, dial_num, value, label):
+            if value < self.min_value:
+                self.min_value = value
+            if value > self.max_value:
+                self.max_value = value
+
+            dial = self.dials()[dial_num]
+            # the dial servo will always display a percentage [0..100],
+            # we'll set up the dial minimum and maximum to reflect that:
+            dial_config = {
+                "scale_type": "linear",
+                "rotation": "cw",
+                "min_value": 0,
+                "max_value": 100,
+                "min_position": 0,
+                "max_position": 360,
+                "num_ticks": 12
+            }
+
+            # calculate percentage:
+            percent = scale_value(value, self.min_value, self.max_value, 0, 100)
+
+            # log statement:
+            current_time = datetime.datetime.now().time()
+            print "%s percent = %d%%, label = %s, actual = %d [%d, %d]" % (
+                current_time.isoformat(), percent, label,
+                value, self.min_value, self.max_value)
+
+            # assert manual control (chan. 10) with new config, value, & label:
             dial.update(dict(
                 channel_configuration=dict(channel_id="10"),
-                dial_configuration=original["dial_configuration"],
+                dial_configuration=dial_config,
                 label=label,
                 value=percent,
             ))
 
 
 class Neurio(object):
-    def __init__(self, secret_file_name, sensor_id):
-
+    def __init__(self, secret_file_name):
         config = ConfigParser.RawConfigParser()
         config.read(secret_file_name)
 
         tp = neurio.TokenProvider(key=config.get('auth','key'),
                                   secret=config.get('auth','secret'))
+        sensor_id = config.get('device', 'id')
         nc = neurio.Client(token_provider=tp)
 
         # Wrap Neurio client with our Neurio class:
@@ -65,30 +97,40 @@ class Neurio(object):
     def getSample(self):
         sample = self.getLastLiveSamples(sensor_id=self.sensor_id)
 
-        return sample['consumptionPower']
-
-
-def scale_value(x, in_min, in_max, out_min, out_max):
-    return (x - in_min) * (out_max - out_min) // (in_max - in_min) + out_min
+        return int(sample['consumptionPower'])
 
 
 def main():
-    my_nimbus = Nimbus("./wink-secret.cfg")
-    my_neurio = Neurio("./neurio-secret.cfg", "0x0013A20040B65FAD")
+    app_cfg = ConfigParser.RawConfigParser()
+    app_cfg.read("./cfg/app.cfg")
+
+    my_nimbus = Nimbus("./cfg/wink.cfg")
+    my_neurio = Neurio("./cfg/neurio.cfg")
+
+    update_period_sec = int(app_cfg.get('global', 'update_period_sec'))
 
     while 1:
-        sample = my_neurio.getSample()
-        percent = scale_value(sample, 0, 2500, 0, 100)
-        current_time = datetime.datetime.now().time()
-        print "%s value = %sW, %s%%" % (current_time.isoformat(), sample, percent)
-        my_nimbus.set_dial_percent(3, percent, "%sW" % sample)
-        time.sleep(60)
+        wattage = my_neurio.getSample()
+        my_nimbus.set_dial_value(3, wattage, "%dW" % wattage)
+        time.sleep(update_period_sec)
 
-    print my_neurio.getSample()
-
-    return 0
+    # normally, we should never return...
+    return -1
 
 
 if __name__ == "__main__":
-    ret = main()
+    # do forever, unless we receive SIGINT:
+    while 1:
+        try:
+            ret = main()
+        except KeyboardInterrupt:
+            ret = 0
+            break
+        except:
+            print "Exception:"
+            print '-'*60
+            traceback.print_exc(file=sys.stdout)
+            print '-'*60
+            continue
+
     sys.exit(ret)
