@@ -9,5 +9,5 @@ ONBUILD ADD . /app
 WORKDIR /app
 
 # Start python
-CMD ["/env/bin/python", "neurio-nimbus.py"]
+CMD ["/env/bin/python", "-u", "neurio-nimbus.py"]
 
