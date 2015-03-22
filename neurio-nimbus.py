@@ -95,7 +95,7 @@ class Neurio(object):
 
 
     def getSample(self):
-        sample = self.getLastLiveSamples(sensor_id=self.sensor_id)
+        sample = self.get_samples_live_last(sensor_id=self.sensor_id)
 
         return int(sample['consumptionPower'])
 
