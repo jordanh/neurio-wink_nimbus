@@ -45,5 +45,5 @@ $ python neurio-nimbus.py
 ## Docker
 
 If you'd like, you can run this application in a
-[Docker][https://www.docker.com/] image. A Dockerfile
+[Docker](https://www.docker.com/) image. A Dockerfile
 has been included with the project.
