@@ -2,7 +2,6 @@
 
 import sys, traceback
 sys.path.append("./py-wink")
-sys.path.append("./python-neurio")
 
 import wink
 import neurio
